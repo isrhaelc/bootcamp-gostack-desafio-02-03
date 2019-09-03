@@ -1,7 +1,7 @@
 import * as Yup from 'yup';
-import { startOfHour, parseISO, isBefore, format, subHours } from 'date-fns';
+import { startOfHour, parseISO, isBefore } from 'date-fns';
 
-import User from '../models/User';
+import File from '../models/File';
 import Meetapp from '../models/Meetapps';
 
 class MeetappController {
@@ -14,6 +14,13 @@ class MeetappController {
       },
       order: ['date'],
       attributes: ['id', 'title', 'description', 'location', 'date'],
+      include: [
+        {
+          model: File,
+          as: 'file',
+          attributes: ['name', 'path', 'url'],
+        },
+      ],
       limit: 10,
       offset: (page - 1) * 10,
     });
@@ -24,6 +31,7 @@ class MeetappController {
   async store(req, res) {
     const schema = Yup.object().shape({
       title: Yup.string().required(),
+      file_id: Yup.number().required(),
       description: Yup.string().required(),
       location: Yup.string().required(),
       date: Yup.date().required(),
@@ -33,20 +41,13 @@ class MeetappController {
       return res.status(400).json({ error: 'Validation fails' });
     }
 
-    const { title, description, location, date } = req.body;
-
-    const hourStart = startOfHour(parseISO(date));
-
-    if (isBefore(hourStart, new Date())) {
+    if (isBefore(parseISO(req.body.date), new Date())) {
       return res.status(400).json({ error: 'Past dates are not permitted' });
     }
 
     const meetapp = await Meetapp.create({
       user_id: req.userId,
-      title,
-      description,
-      location,
-      date,
+      ...req.body,
     });
 
     return res.json(meetapp);
@@ -55,6 +56,7 @@ class MeetappController {
   async update(req, res) {
     const schema = Yup.object().shape({
       title: Yup.string().required(),
+      file_id: Yup.number().required(),
       description: Yup.string().required(),
       location: Yup.string().required(),
       date: Yup.date().required(),
@@ -80,9 +82,13 @@ class MeetappController {
       });
     }
 
-    const { title, date } = await meetapp.update(req.body);
+    if (!meetapp.editable) {
+      return res.status(400).json({ error: "Can't update past meetups." });
+    }
 
-    return res.json({ title, date });
+    await meetapp.update(req.body);
+
+    return res.json(meetapp);
   }
 
   async delete(req, res) {
@@ -94,19 +100,13 @@ class MeetappController {
       });
     }
 
-    const hourStart = startOfHour(parseISO(req.body.date));
-
-    if (isBefore(hourStart, new Date())) {
-      return res.status(400).json({
-        error: 'You can not delete past meetapps',
-      });
+    if (meetapp.past) {
+      return res.status(400).json({ error: "Can't delete past meetups." });
     }
-
-    const { title, date } = meetapp;
 
     await meetapp.destroy(req.body);
 
-    return res.json({ title, date });
+    return res.send();
   }
 }
 
