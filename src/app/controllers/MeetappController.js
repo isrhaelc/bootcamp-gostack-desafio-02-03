@@ -81,7 +81,7 @@ class MeetappController {
       });
     }
 
-    if (!meetapp.editable) {
+    if (meetapp.past) {
       return res.status(400).json({ error: "Can't update past meetups." });
     }
 

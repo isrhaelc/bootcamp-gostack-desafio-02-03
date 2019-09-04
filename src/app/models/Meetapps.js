@@ -9,10 +9,10 @@ class Meetapps extends Model {
         description: Sequelize.STRING,
         location: Sequelize.STRING,
         date: Sequelize.DATE,
-        editable: {
+        past: {
           type: Sequelize.VIRTUAL,
           get() {
-            return !isBefore(this.date, new Date());
+            return isBefore(this.date, new Date());
           },
         },
       },

@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import User from '../models/User';
 import Meetapps from '../models/Meetapps';
+import File from '../models/File';
 import Subscription from '../models/Subscription';
 // import Queue from '../../lib/Queue';
 // import SubscriptionMail from '../jobs/SubscriptionMail';
@@ -11,15 +12,23 @@ class SubscriptionController {
       where: {
         user_id: req.userId,
       },
+      attributes: [],
       include: [
         {
           model: Meetapps,
+          attributes: ['id', 'title', 'description', 'location', 'date'],
           where: {
             date: {
               [Op.gt]: new Date(),
             },
           },
           required: true,
+          include: [
+            {
+              model: File,
+              attributes: ['url', 'path', 'name'],
+            },
+          ],
         },
       ],
       order: [[Meetapps, 'date']],
@@ -40,7 +49,7 @@ class SubscriptionController {
         .json({ error: "Can't subscribe to you own meetups" });
     }
 
-    if (!meetapp.editable) {
+    if (meetapp.past) {
       return res.status(400).json({ error: "Can't subscribe to past meetups" });
     }
 
